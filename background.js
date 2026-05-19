@@ -15261,9 +15261,17 @@ async function recoverOAuthLocalhostTimeout(details = {}) {
     return null;
   }
 
-  const authLoginStep = typeof getAuthChainStartStepId === 'function'
+  const defaultAuthLoginStep = typeof getAuthChainStartStepId === 'function'
     ? getAuthChainStartStepId(state || {})
     : FINAL_OAUTH_CHAIN_START_STEP;
+  const reloginBoundEmailStep = typeof getStepIdByKeyForState === 'function'
+    ? Number(getStepIdByKeyForState('relogin-bound-email', state || {}))
+    : 0;
+  const authLoginStep = Number.isFinite(reloginBoundEmailStep)
+    && reloginBoundEmailStep > 0
+    && reloginBoundEmailStep < Number(visibleStep)
+    ? reloginBoundEmailStep
+    : defaultAuthLoginStep;
   const authLoginNodeId = String(getNodeIdByStepForState(authLoginStep, state || {}) || 'oauth-login').trim();
   const confirmNodeId = String(getNodeIdByStepForState(visibleStep, state || {}) || 'confirm-oauth').trim();
 
@@ -15336,6 +15344,12 @@ async function recoverOAuthLocalhostTimeout(details = {}) {
         return step8Executor.executeBindEmail(payload);
       case 'fetch-bind-email-code':
         return step8Executor.executeFetchBindEmailCode(payload);
+      case 'relogin-bound-email':
+        return executeReloginBoundEmail(payload);
+      case 'fetch-bound-email-login-code':
+        return step8Executor.executeBoundEmailLoginCode(payload);
+      case 'post-bound-email-phone-verification':
+        return step8Executor.executeBoundEmailPostLoginPhoneVerification(payload);
       default:
         throw new Error(`OAuth localhost 恢复不支持节点 ${nodeId}。`);
     }
