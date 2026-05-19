@@ -36,7 +36,7 @@ test('flow registry exposes canonical flow and target metadata', () => {
   );
   assert.deepEqual(
     flowRegistry.getSettingsGroupDefinition('openai-plus')?.rowIds,
-    ['row-plus-mode', 'row-plus-payment-method', 'row-plus-account-access-strategy']
+    ['row-plus-mode', 'row-plus-account-access-strategy', 'row-plus-payment-method']
   );
   assert.equal(flowRegistry.getPublicationTargetDefinition('kiro', 'kiro-rs')?.label, 'kiro.rs');
 });

@@ -336,7 +336,7 @@
     'openai-plus': {
       id: 'openai-plus',
       label: 'Plus',
-      rowIds: ['row-plus-mode', 'row-plus-payment-method', 'row-plus-account-access-strategy'],
+      rowIds: ['row-plus-mode', 'row-plus-account-access-strategy', 'row-plus-payment-method'],
     },
     'openai-phone': {
       id: 'openai-phone',
