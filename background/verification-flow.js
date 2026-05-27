@@ -10,6 +10,7 @@
       buildVerificationPollPayload: externalBuildVerificationPollPayload = null,
       chrome,
       closeConflictingTabsForSource,
+      CLAWEMAIL_DUCK_PROVIDER = 'claw-duck',
       CLOUDFLARE_TEMP_EMAIL_PROVIDER,
       CLOUD_MAIL_PROVIDER = 'cloudmail',
       completeNodeFromBackground,
@@ -27,6 +28,7 @@
       YYDS_MAIL_PROVIDER = 'yyds-mail',
       MAIL_2925_VERIFICATION_INTERVAL_MS,
       MAIL_2925_VERIFICATION_MAX_ATTEMPTS,
+      pollClawEmailDuckVerificationCode,
       pollCloudflareTempEmailVerificationCode,
       pollCloudMailVerificationCode,
       pollHotmailVerificationCode,
@@ -67,6 +69,20 @@
       }
       delete normalizedOptions.visibleStep;
       return rawAddLog(normalizeVerificationLogMessage(message), level, normalizedOptions);
+    }
+
+    function normalizeMailProviderId(value = '') {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function isClawEmailDuckMail(mail = {}, state = {}) {
+      const clawProvider = normalizeMailProviderId(CLAWEMAIL_DUCK_PROVIDER);
+      const provider = normalizeMailProviderId(mail?.provider || state?.mailProvider);
+      const generator = normalizeMailProviderId(state?.emailGenerator);
+      const label = normalizeMailProviderId(mail?.label);
+      return provider === clawProvider
+        || generator === clawProvider
+        || label === 'clawemail duck';
     }
 
     async function getNodeIdForStep(step) {
@@ -986,6 +1002,13 @@
           ...cleanPollOverrides,
         }, cleanPollOverrides, `轮询${getVerificationCodeLabel(step)}验证码邮箱`);
         return pollCloudMailVerificationCode(step, state, timedPoll.payload);
+      }
+      if (isClawEmailDuckMail(mail, state)) {
+        const timedPoll = await applyMailPollingTimeBudget(step, {
+          ...getVerificationPollPayload(step, state),
+          ...cleanPollOverrides,
+        }, cleanPollOverrides, `轮询${getVerificationCodeLabel(step)}验证码邮箱`);
+        return pollClawEmailDuckVerificationCode(step, state, timedPoll.payload);
       }
       if (mail.provider === YYDS_MAIL_PROVIDER) {
         const timedPoll = await applyMailPollingTimeBudget(step, {

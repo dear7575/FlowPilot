@@ -86,6 +86,8 @@ importScripts(
   'cloudflare-temp-email-utils.js',
   'cloudmail-utils.js',
   'background/cloudmail-provider.js',
+  'clawemail-utils.js',
+  'background/clawemail-duck-provider.js',
   'yyds-mail-utils.js',
   'background/yyds-mail-provider.js',
   'icloud-utils.js',
@@ -391,6 +393,21 @@ const {
   normalizeCloudMailDomains,
   normalizeCloudMailMailApiMessages,
 } = self.CloudMailUtils;
+const {
+  CLAWEMAIL_DUCK_GENERATOR,
+  CLAWEMAIL_DUCK_PROVIDER,
+  DEFAULT_CLAWEMAIL_BASE_URL,
+  DEFAULT_MAIL_PAGE_SIZE: CLAWEMAIL_DEFAULT_MAIL_PAGE_SIZE,
+  buildClawEmailHeaders,
+  getClawEmailDuckAddressFromResponse,
+  joinClawEmailUrl,
+  normalizeClawEmailAddress,
+  normalizeClawEmailAdminPassword,
+  normalizeClawEmailBaseUrl,
+  normalizeClawEmailDuckAccountId,
+  normalizeClawEmailForwardingMailbox,
+  normalizeClawEmailMessages,
+} = self.ClawEmailUtils;
 const {
   DEFAULT_YYDS_MAIL_BASE_URL,
   YYDS_MAIL_PROVIDER,
@@ -1437,6 +1454,11 @@ const PERSISTED_SETTING_DEFAULTS = {
   cloudMailReceiveMailbox: '',
   cloudMailDomain: '',
   cloudMailDomains: [],
+  clawEmailBaseUrl: DEFAULT_CLAWEMAIL_BASE_URL,
+  clawEmailAdminPassword: '',
+  clawEmailDuckAccountId: '',
+  clawEmailForwardingMailbox: '',
+  clawEmailConnectionId: '',
   yydsMailApiKey: '',
   yydsMailBaseUrl: DEFAULT_YYDS_MAIL_BASE_URL,
   hotmailAccounts: [],
@@ -2485,6 +2507,7 @@ function normalizeEmailGenerator(value = '') {
   if (normalized === 'cloudflare') return 'cloudflare';
   if (normalized === CLOUDFLARE_TEMP_EMAIL_GENERATOR) return CLOUDFLARE_TEMP_EMAIL_GENERATOR;
   if (normalized === 'cloudmail') return 'cloudmail';
+  if (normalized === CLAWEMAIL_DUCK_GENERATOR) return CLAWEMAIL_DUCK_GENERATOR;
   if (normalized === yydsMailGenerator) return yydsMailGenerator;
   return 'duck';
 }
@@ -2732,6 +2755,7 @@ function normalizeMailProvider(value = '') {
     case LUCKMAIL_PROVIDER:
     case CLOUDFLARE_TEMP_EMAIL_PROVIDER:
     case CLOUD_MAIL_PROVIDER:
+    case CLAWEMAIL_DUCK_PROVIDER:
     case yydsMailProvider:
     case '163':
     case '163-vip':
@@ -2987,6 +3011,31 @@ const {
   pollCloudMailVerificationCode,
   resolveCloudMailPollTargetEmail,
 } = cloudMailProvider;
+const clawEmailDuckProvider = self.MultiPageBackgroundClawEmailDuckProvider.createClawEmailDuckProvider({
+  addLog,
+  buildClawEmailHeaders,
+  CLAWEMAIL_DUCK_GENERATOR,
+  CLAWEMAIL_DUCK_PROVIDER,
+  DEFAULT_MAIL_PAGE_SIZE: CLAWEMAIL_DEFAULT_MAIL_PAGE_SIZE,
+  getClawEmailDuckAddressFromResponse,
+  getState,
+  joinClawEmailUrl,
+  normalizeClawEmailAddress,
+  normalizeClawEmailAdminPassword,
+  normalizeClawEmailBaseUrl,
+  normalizeClawEmailDuckAccountId,
+  normalizeClawEmailForwardingMailbox,
+  normalizeClawEmailMessages,
+  persistRegistrationEmailState,
+  pickVerificationMessageWithTimeFallback,
+  setEmailState,
+  sleepWithStop,
+  throwIfStopped,
+});
+const {
+  fetchClawEmailDuckAddress,
+  pollClawEmailDuckVerificationCode,
+} = clawEmailDuckProvider;
 const yydsMailProvider = self.MultiPageBackgroundYydsMailProvider.createYydsMailProvider({
   addLog,
   buildYydsMailHeaders,
@@ -3472,6 +3521,16 @@ function normalizePersistentSettingValue(key, value) {
       return normalizeCloudMailDomain(value);
     case 'cloudMailDomains':
       return normalizeCloudMailDomains(value);
+    case 'clawEmailBaseUrl':
+      return normalizeClawEmailBaseUrl(value);
+    case 'clawEmailAdminPassword':
+      return normalizeClawEmailAdminPassword(value);
+    case 'clawEmailDuckAccountId':
+      return normalizeClawEmailDuckAccountId(value);
+    case 'clawEmailForwardingMailbox':
+      return normalizeClawEmailForwardingMailbox(value);
+    case 'clawEmailConnectionId':
+      return String(value || '').trim();
     case 'yydsMailApiKey':
       return normalizeYydsMailApiKey(value);
     case 'yydsMailBaseUrl':
@@ -11900,12 +11959,22 @@ async function fetchGeneratedEmail(state, options = {}) {
   if (requestedMailProvider === yydsMailProvider) {
     return fetchYydsMailAddress(currentState, options);
   }
+  if (requestedMailProvider === CLAWEMAIL_DUCK_PROVIDER) {
+    return fetchClawEmailDuckAddress(currentState, {
+      ...options,
+      generator: CLAWEMAIL_DUCK_GENERATOR,
+      mailProvider: CLAWEMAIL_DUCK_PROVIDER,
+    });
+  }
   const generator = normalizeEmailGenerator(options.generator ?? currentState.emailGenerator);
   if (generator === yydsMailGenerator) {
     return fetchYydsMailAddress(currentState, options);
   }
   if (generator === CLOUD_MAIL_GENERATOR) {
     return fetchCloudMailAddress(currentState, options);
+  }
+  if (generator === CLAWEMAIL_DUCK_GENERATOR) {
+    return fetchClawEmailDuckAddress(currentState, options);
   }
   return generatedEmailHelpers.fetchGeneratedEmail(state, options);
 }
@@ -12473,6 +12542,12 @@ async function ensureAutoEmailReady(targetRun, totalRuns, attemptRuns) {
   if (isYydsMailProvider(currentState)) {
     const email = await fetchYydsMailAddress(currentState, { generateNew: true });
     await addLog(`=== 目标 ${targetRun}/${totalRuns} 轮：YYDS Mail 邮箱已就绪：${email}（第 ${attemptRuns} 次尝试）===`, 'ok');
+    return email;
+  }
+
+  if (String(currentState.mailProvider || '').trim().toLowerCase() === CLAWEMAIL_DUCK_PROVIDER) {
+    const email = await fetchClawEmailDuckAddress(currentState, { generateNew: true });
+    await addLog(`=== 目标 ${targetRun}/${totalRuns} 轮：ClawEmail Duck 邮箱已就绪：${email}（第 ${attemptRuns} 次尝试）===`, 'ok');
     return email;
   }
 
@@ -13438,6 +13513,7 @@ const flowMailPollingService = self.MultiPageBackgroundFlowMailPolling?.createFl
   addLog,
   buildVerificationPollPayloadForNode: mailRuleRegistry?.buildVerificationPollPayloadForNode,
   chrome,
+  CLAWEMAIL_DUCK_PROVIDER,
   CLOUDFLARE_TEMP_EMAIL_PROVIDER,
   CLOUD_MAIL_PROVIDER,
   ensureIcloudMailSession: ensureIcloudMailSessionForVerification,
@@ -13450,6 +13526,7 @@ const flowMailPollingService = self.MultiPageBackgroundFlowMailPolling?.createFl
   isStopError,
   isTabAlive,
   LUCKMAIL_PROVIDER,
+  pollClawEmailDuckVerificationCode,
   pollCloudflareTempEmailVerificationCode,
   pollCloudMailVerificationCode,
   pollHotmailVerificationCode,
@@ -13465,6 +13542,7 @@ const verificationFlowHelpers = self.MultiPageBackgroundVerificationFlow?.create
   buildVerificationPollPayload: mailRuleRegistry?.buildVerificationPollPayload,
   chrome,
   closeConflictingTabsForSource,
+  CLAWEMAIL_DUCK_PROVIDER,
   CLOUDFLARE_TEMP_EMAIL_PROVIDER,
   CLOUD_MAIL_PROVIDER,
   completeNodeFromBackground,
@@ -13486,6 +13564,7 @@ const verificationFlowHelpers = self.MultiPageBackgroundVerificationFlow?.create
   YYDS_MAIL_PROVIDER,
   MAIL_2925_VERIFICATION_INTERVAL_MS,
   MAIL_2925_VERIFICATION_MAX_ATTEMPTS,
+  pollClawEmailDuckVerificationCode,
   pollCloudflareTempEmailVerificationCode,
   pollCloudMailVerificationCode,
   pollHotmailVerificationCode,
@@ -13667,6 +13746,7 @@ const step7Executor = self.MultiPageBackgroundStep7?.createStep7Executor({
 const step8Executor = self.MultiPageBackgroundStep8?.createStep8Executor({
   addLog,
   chrome,
+  CLAWEMAIL_DUCK_PROVIDER,
   CLOUDFLARE_TEMP_EMAIL_PROVIDER,
   CLOUD_MAIL_PROVIDER,
   completeNodeFromBackground,
@@ -14332,8 +14412,8 @@ async function executeStep3(state) {
 // Step 4: Get Signup Verification Code (qq-mail.js polls, then fills in openai-auth.js)
 // ============================================================
 
-function getMailConfig(state) {
-  const provider = state.mailProvider || 'qq';
+function getMailConfig(state = {}) {
+  const provider = String(state?.mailProvider || 'qq').trim().toLowerCase() || 'qq';
   const yydsMailProvider = typeof YYDS_MAIL_PROVIDER === 'string'
     ? YYDS_MAIL_PROVIDER
     : 'yyds-mail';
@@ -14384,6 +14464,9 @@ function getMailConfig(state) {
   }
   if (provider === 'cloudmail') {
     return { provider: 'cloudmail', label: 'Cloud Mail' };
+  }
+  if (provider === CLAWEMAIL_DUCK_PROVIDER) {
+    return { provider: CLAWEMAIL_DUCK_PROVIDER, label: 'ClawEmail Duck' };
   }
   if (provider === yydsMailProvider) {
     return { provider: yydsMailProvider, label: 'YYDS Mail' };

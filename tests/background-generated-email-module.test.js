@@ -11,6 +11,8 @@ function loadGeneratedEmailHelpersApi() {
 test('background imports generated email helper module', () => {
   const source = fs.readFileSync('background.js', 'utf8');
   assert.match(source, /importScripts\([\s\S]*'background\/generated-email-helpers\.js'/);
+  assert.match(source, /importScripts\([\s\S]*'clawemail-utils\.js'/);
+  assert.match(source, /importScripts\([\s\S]*'background\/clawemail-duck-provider\.js'/);
 });
 
 test('generated email helper module exposes a factory', () => {

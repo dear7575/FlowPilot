@@ -68,6 +68,7 @@ function createApi(overrides = {}) {
 const HOTMAIL_PROVIDER = 'hotmail-api';
 const HOTMAIL_SERVICE_MODE_LOCAL = 'local';
 const CLOUDFLARE_TEMP_EMAIL_GENERATOR = 'cloudflare-temp-email';
+const CLAWEMAIL_DUCK_GENERATOR = 'claw-duck';
 const DEFAULT_LOCAL_CPA_STEP9_MODE = 'submit';
 const DEFAULT_HOTMAIL_REMOTE_BASE_URL = '';
 const DEFAULT_HOTMAIL_LOCAL_BASE_URL = 'http://127.0.0.1:17373';

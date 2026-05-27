@@ -64,6 +64,7 @@ const GMAIL_PROVIDER = 'gmail';
 const HOTMAIL_PROVIDER = 'hotmail-api';
 const LUCKMAIL_PROVIDER = 'luckmail-api';
 const CLOUDFLARE_TEMP_EMAIL_PROVIDER = 'cloudflare-temp-email';
+const CLAWEMAIL_DUCK_PROVIDER = 'claw-duck';
 const getSharedIcloudForwardMailConfig = shared.getIcloudForwardMailConfig;
 const normalizeIcloudTargetMailboxType = shared.normalizeIcloudTargetMailboxType;
 const normalizeIcloudForwardMailProvider = shared.normalizeIcloudForwardMailProvider;
@@ -99,6 +100,7 @@ const GMAIL_PROVIDER = 'gmail';
 const HOTMAIL_PROVIDER = 'hotmail-api';
 const LUCKMAIL_PROVIDER = 'luckmail-api';
 const CLOUDFLARE_TEMP_EMAIL_PROVIDER = 'cloudflare-temp-email';
+const CLAWEMAIL_DUCK_PROVIDER = 'claw-duck';
 const PERSISTED_SETTING_DEFAULTS = { mailProvider: '163' };
 ${bundle}
 return { normalizeMailProvider };

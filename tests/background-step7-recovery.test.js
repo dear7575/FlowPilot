@@ -733,6 +733,124 @@ test('fetch-bind-email-code polls only after bind-email submitted', async () => 
   ]);
 });
 
+test('fetch-bind-email-code treats ClawEmail Duck as API polling provider', async () => {
+  const calls = {
+    openedMailTabs: [],
+    resolveMail: null,
+  };
+
+  const executor = api.createStep8Executor({
+    addLog: async () => {},
+    chrome: {
+      tabs: {
+        update: async () => {},
+      },
+    },
+    CLAWEMAIL_DUCK_PROVIDER: 'claw-duck',
+    CLOUDFLARE_TEMP_EMAIL_PROVIDER: 'cloudflare-temp-email',
+    getOAuthFlowRemainingMs: async () => 9000,
+    getOAuthFlowStepTimeoutMs: async (defaultTimeoutMs) => defaultTimeoutMs,
+    getMailConfig: () => ({
+      provider: 'claw-duck',
+      label: 'ClawEmail Duck',
+    }),
+    getTabId: async () => 1,
+    HOTMAIL_PROVIDER: 'hotmail-api',
+    LUCKMAIL_PROVIDER: 'luckmail-api',
+    resolveVerificationStep: async (_step, _state, mail, options) => {
+      calls.resolveMail = { mail, options };
+    },
+    reuseOrCreateTab: async (source) => {
+      calls.openedMailTabs.push(source);
+      return 1;
+    },
+    sendToContentScriptResilient: async () => ({
+      state: 'verification_page',
+      displayedEmail: 'catcher-runt-yoga@duck.com',
+      url: 'https://auth.openai.com/email-verification',
+    }),
+    setState: async () => {},
+    shouldUseCustomRegistrationEmail: () => false,
+    STANDARD_MAIL_VERIFICATION_RESEND_INTERVAL_MS: 25000,
+    throwIfStopped: () => {},
+  });
+
+  await executor.executeFetchBindEmailCode({
+    visibleStep: 10,
+    nodeId: 'fetch-bind-email-code',
+    bindEmailSubmitted: true,
+    email: 'catcher-runt-yoga@duck.com',
+    mailProvider: 'claw-duck',
+    oauthUrl: 'https://oauth.example/latest',
+  });
+
+  assert.deepStrictEqual(calls.openedMailTabs, []);
+  assert.equal(calls.resolveMail.mail.provider, 'claw-duck');
+  assert.equal(calls.resolveMail.options.targetEmail, 'catcher-runt-yoga@duck.com');
+});
+
+test('fetch-bind-email-code does not open ClawEmail Duck tab when provider casing is stale', async () => {
+  const calls = {
+    openedMailTabs: [],
+    logs: [],
+    resolveMail: null,
+  };
+
+  const executor = api.createStep8Executor({
+    addLog: async (message) => {
+      calls.logs.push(message);
+    },
+    chrome: {
+      tabs: {
+        update: async () => {},
+      },
+    },
+    CLAWEMAIL_DUCK_PROVIDER: 'claw-duck',
+    CLOUDFLARE_TEMP_EMAIL_PROVIDER: 'cloudflare-temp-email',
+    getOAuthFlowRemainingMs: async () => 9000,
+    getOAuthFlowStepTimeoutMs: async (defaultTimeoutMs) => defaultTimeoutMs,
+    getMailConfig: () => ({
+      provider: ' Claw-Duck ',
+      label: 'ClawEmail Duck',
+      source: 'clawemail-duck',
+      url: 'https://example.invalid/mail',
+    }),
+    getTabId: async () => 1,
+    HOTMAIL_PROVIDER: 'hotmail-api',
+    LUCKMAIL_PROVIDER: 'luckmail-api',
+    resolveVerificationStep: async (_step, _state, mail, options) => {
+      calls.resolveMail = { mail, options };
+    },
+    reuseOrCreateTab: async (source) => {
+      calls.openedMailTabs.push(source);
+      return 1;
+    },
+    sendToContentScriptResilient: async () => ({
+      state: 'verification_page',
+      displayedEmail: 'catcher-runt-yoga@duck.com',
+      url: 'https://auth.openai.com/email-verification',
+    }),
+    setState: async () => {},
+    shouldUseCustomRegistrationEmail: () => false,
+    STANDARD_MAIL_VERIFICATION_RESEND_INTERVAL_MS: 25000,
+    throwIfStopped: () => {},
+  });
+
+  await executor.executeFetchBindEmailCode({
+    visibleStep: 10,
+    nodeId: 'fetch-bind-email-code',
+    bindEmailSubmitted: true,
+    email: 'catcher-runt-yoga@duck.com',
+    emailGenerator: 'claw-duck',
+    mailProvider: ' Claw-Duck ',
+    oauthUrl: 'https://oauth.example/latest',
+  });
+
+  assert.deepStrictEqual(calls.openedMailTabs, []);
+  assert.match(calls.logs.join('\n'), /正在通过 ClawEmail Duck 轮询验证码/);
+  assert.equal(calls.resolveMail.options.targetEmail, 'catcher-runt-yoga@duck.com');
+});
+
 test('fetch-bind-email-code rejects unexpected pages after bind-email submitted', async () => {
   const executor = api.createStep8Executor({
     addLog: async () => {},

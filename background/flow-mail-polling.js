@@ -67,6 +67,7 @@
       addLog = async () => {},
       buildVerificationPollPayloadForNode = null,
       chrome = (typeof globalThis !== 'undefined' ? globalThis.chrome : null),
+      CLAWEMAIL_DUCK_PROVIDER = 'claw-duck',
       CLOUDFLARE_TEMP_EMAIL_PROVIDER = 'cloudflare-temp-email',
       CLOUD_MAIL_PROVIDER = 'cloudmail',
       ensureIcloudMailSession = null,
@@ -79,6 +80,7 @@
       isStopError = null,
       isTabAlive = async () => false,
       LUCKMAIL_PROVIDER = 'luckmail-api',
+      pollClawEmailDuckVerificationCode = null,
       pollCloudflareTempEmailVerificationCode = null,
       pollCloudMailVerificationCode = null,
       pollHotmailVerificationCode = null,
@@ -107,6 +109,10 @@
         label: 'Cloud Mail',
         poll: pollCloudMailVerificationCode,
       }],
+      [normalizeProviderId(CLAWEMAIL_DUCK_PROVIDER), {
+        label: 'ClawEmail Duck',
+        poll: pollClawEmailDuckVerificationCode,
+      }],
       [normalizeProviderId(YYDS_MAIL_PROVIDER), {
         label: 'YYDS Mail',
         poll: pollYydsMailVerificationCode,
@@ -123,6 +129,23 @@
         return;
       }
       await chrome.tabs.update(tabId, { active: true });
+    }
+
+    function isClawEmailDuckMail(mail = {}, state = {}) {
+      const clawProvider = normalizeProviderId(CLAWEMAIL_DUCK_PROVIDER);
+      const provider = normalizeProviderId(mail?.provider || state?.mailProvider);
+      const generator = normalizeProviderId(state?.emailGenerator);
+      const label = normalizeProviderId(mail?.label);
+      return provider === clawProvider
+        || generator === clawProvider
+        || label === 'clawemail duck';
+    }
+
+    function resolvePollingProviderId(mail = {}, state = {}) {
+      if (isClawEmailDuckMail(mail, state)) {
+        return normalizeProviderId(CLAWEMAIL_DUCK_PROVIDER);
+      }
+      return normalizeProviderId(mail?.provider || state?.mailProvider);
     }
 
     async function focusOrOpenMailTab(mail = {}) {
@@ -304,7 +327,7 @@
       }
       const pollPayload = buildVerificationPollPayloadForNode(nodeId, ruleState, nextOverrides);
       const normalizedStep = Math.max(1, Math.floor(Number(pollPayload?.step || step) || 1));
-      const providerId = normalizeProviderId(mail?.provider);
+      const providerId = resolvePollingProviderId(mail, ruleState);
       const logOptions = {};
       const normalizedLogStep = Math.floor(Number(logStep || normalizedStep) || 0);
       if (normalizedLogStep > 0) {

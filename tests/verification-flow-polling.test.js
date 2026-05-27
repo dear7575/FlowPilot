@@ -61,6 +61,7 @@ function createVerificationFlowTestHelpers(overrides = {}) {
         remove: async () => {},
       },
     },
+    CLAWEMAIL_DUCK_PROVIDER: 'claw-duck',
     CLOUDFLARE_TEMP_EMAIL_PROVIDER: 'cloudflare-temp-email',
     CLOUD_MAIL_PROVIDER: 'cloudmail',
     completeNodeFromBackground: async () => {},
@@ -75,6 +76,7 @@ function createVerificationFlowTestHelpers(overrides = {}) {
     LUCKMAIL_PROVIDER: 'luckmail-api',
     MAIL_2925_VERIFICATION_INTERVAL_MS: 15000,
     MAIL_2925_VERIFICATION_MAX_ATTEMPTS: 15,
+    pollClawEmailDuckVerificationCode: async () => ({}),
     pollCloudflareTempEmailVerificationCode: async () => ({}),
     pollCloudMailVerificationCode: async () => ({}),
     pollHotmailVerificationCode: async () => ({}),
@@ -330,6 +332,49 @@ test('verification flow runs beforeSubmit hook before filling the code', async (
 
   assert.deepStrictEqual(events, [
     ['beforeSubmit', '654321'],
+    ['submit', '654321'],
+    ['state', '654321'],
+    ['complete', '654321'],
+  ]);
+});
+
+test('verification flow polls ClawEmail Duck through API provider without mail content script', async () => {
+  const events = [];
+
+  const helpers = createVerificationFlowTestHelpers({
+    completeNodeFromBackground: async (_nodeId, payload) => {
+      events.push(['complete', payload.code]);
+    },
+    pollClawEmailDuckVerificationCode: async (step, state, payload) => {
+      events.push(['clawPoll', step, state.email, payload.targetEmail]);
+      return {
+        code: '654321',
+        emailTimestamp: 123,
+      };
+    },
+    sendToContentScript: async (_source, message) => {
+      if (message.type === 'FILL_CODE') {
+        events.push(['submit', message.payload.code]);
+      }
+      return {};
+    },
+    sendToMailContentScriptResilient: async () => {
+      throw new Error('unexpected mail content script path');
+    },
+    setState: async (payload) => {
+      events.push(['state', payload.lastLoginCode || payload.lastSignupCode]);
+    },
+  });
+
+  await helpers.resolveVerificationStep(
+    8,
+    { email: 'catcher-runt-yoga@duck.com', lastLoginCode: null },
+    { provider: 'claw-duck', label: 'ClawEmail Duck' },
+    { targetEmail: 'catcher-runt-yoga@duck.com' }
+  );
+
+  assert.deepStrictEqual(events, [
+    ['clawPoll', 8, 'catcher-runt-yoga@duck.com', 'catcher-runt-yoga@duck.com'],
     ['submit', '654321'],
     ['state', '654321'],
     ['complete', '654321'],

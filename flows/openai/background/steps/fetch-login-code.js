@@ -7,6 +7,7 @@
     const {
       addLog: rawAddLog = async () => {},
       chrome,
+      CLAWEMAIL_DUCK_PROVIDER = 'claw-duck',
       CLOUDFLARE_TEMP_EMAIL_PROVIDER,
       CLOUD_MAIL_PROVIDER = 'cloudmail',
       completeNodeFromBackground,
@@ -395,6 +396,29 @@
       return String(state?.mail2925BaseEmail || '').trim().toLowerCase();
     }
 
+    function normalizeMailProviderId(value = '') {
+      return String(value || '').trim().toLowerCase();
+    }
+
+    function isClawEmailDuckMail(mail = {}, state = {}) {
+      const clawProvider = normalizeMailProviderId(CLAWEMAIL_DUCK_PROVIDER);
+      const provider = normalizeMailProviderId(mail?.provider || state?.mailProvider);
+      const generator = normalizeMailProviderId(state?.emailGenerator);
+      const label = normalizeMailProviderId(mail?.label);
+      return provider === clawProvider
+        || generator === clawProvider
+        || label === 'clawemail duck';
+    }
+
+    function isApiPollingMailProvider(mail = {}, state = {}) {
+      const provider = normalizeMailProviderId(mail?.provider || state?.mailProvider);
+      return provider === normalizeMailProviderId(HOTMAIL_PROVIDER)
+        || provider === normalizeMailProviderId(LUCKMAIL_PROVIDER)
+        || provider === normalizeMailProviderId(CLOUDFLARE_TEMP_EMAIL_PROVIDER)
+        || provider === normalizeMailProviderId(CLOUD_MAIL_PROVIDER)
+        || isClawEmailDuckMail(mail, state);
+    }
+
     async function focusOrOpenMailTab(mail) {
       const alive = await isTabAlive(mail.source);
       if (alive) {
@@ -612,13 +636,8 @@
       }
 
       throwIfStopped();
-      if (
-        mail.provider === HOTMAIL_PROVIDER
-        || mail.provider === LUCKMAIL_PROVIDER
-        || mail.provider === CLOUDFLARE_TEMP_EMAIL_PROVIDER
-        || mail.provider === CLOUD_MAIL_PROVIDER
-      ) {
-        await addLog(`步骤 ${visibleStep}：正在通过 ${mail.label} 轮询验证码...`);
+      if (isApiPollingMailProvider(mail, preparedState)) {
+        await addLog(`步骤 ${visibleStep}：正在通过 ${mail.label || '邮箱 API'} 轮询验证码...`);
       } else {
         await addLog(`步骤 ${visibleStep}：正在打开${mail.label}...`);
         if (mail.provider === '2925' && typeof ensureMail2925MailboxSession === 'function') {

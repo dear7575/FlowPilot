@@ -321,6 +321,17 @@ const inputCloudMailAdminEmail = document.getElementById('input-cloud-mail-admin
 const inputCloudMailAdminPassword = document.getElementById('input-cloud-mail-admin-password');
 const inputCloudMailReceiveMailbox = document.getElementById('input-cloud-mail-receive-mailbox');
 const inputCloudMailDomain = document.getElementById('input-cloud-mail-domain');
+const clawEmailDuckSection = document.getElementById('claw-email-duck-section');
+const rowClawEmailBaseUrl = document.getElementById('row-claw-email-base-url');
+const rowClawEmailAdminPassword = document.getElementById('row-claw-email-admin-password');
+const rowClawEmailDuckAccountId = document.getElementById('row-claw-email-duck-account-id');
+const rowClawEmailForwardingMailbox = document.getElementById('row-claw-email-forwarding-mailbox');
+const rowClawEmailConnectionId = document.getElementById('row-claw-email-connection-id');
+const inputClawEmailBaseUrl = document.getElementById('input-claw-email-base-url');
+const inputClawEmailAdminPassword = document.getElementById('input-claw-email-admin-password');
+const inputClawEmailDuckAccountId = document.getElementById('input-claw-email-duck-account-id');
+const inputClawEmailForwardingMailbox = document.getElementById('input-claw-email-forwarding-mailbox');
+const inputClawEmailConnectionId = document.getElementById('input-claw-email-connection-id');
 const yydsMailSection = document.getElementById('yyds-mail-section');
 const inputYydsMailApiKey = document.getElementById('input-yyds-mail-api-key');
 const inputYydsMailBaseUrl = document.getElementById('input-yyds-mail-base-url');
@@ -4116,6 +4127,27 @@ function normalizeCloudMailDomainValue(value = '') {
   return normalizeCloudflareDomainValue(value);
 }
 
+function normalizeClawEmailBaseUrlValue(value = '') {
+  const raw = String(value || '').trim() || 'http://127.0.0.1:8000';
+  const candidate = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(raw) ? raw : `http://${raw}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return 'http://127.0.0.1:8000';
+    }
+    parsed.hash = '';
+    parsed.search = '';
+    const pathname = parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
+    return `${parsed.origin}${pathname}` || 'http://127.0.0.1:8000';
+  } catch {
+    return 'http://127.0.0.1:8000';
+  }
+}
+
+function normalizeClawEmailMailboxValue(value = '') {
+  return normalizeCloudflareTempEmailReceiveMailboxValue(value);
+}
+
 function getCloudflareDomainsFromState() {
   const domains = normalizeCloudflareDomains(latestState?.cloudflareDomains || []);
   const activeDomain = normalizeCloudflareDomainValue(latestState?.cloudflareDomain || '');
@@ -4203,6 +4235,24 @@ function applyCloudMailSettingsState(state = {}) {
   }
   if (inputCloudMailDomain) {
     inputCloudMailDomain.value = state?.cloudMailDomain || '';
+  }
+}
+
+function applyClawEmailDuckSettingsState(state = {}) {
+  if (inputClawEmailBaseUrl) {
+    inputClawEmailBaseUrl.value = normalizeClawEmailBaseUrlValue(state?.clawEmailBaseUrl || '');
+  }
+  if (inputClawEmailAdminPassword) {
+    inputClawEmailAdminPassword.value = state?.clawEmailAdminPassword || '';
+  }
+  if (inputClawEmailDuckAccountId) {
+    inputClawEmailDuckAccountId.value = state?.clawEmailDuckAccountId || '';
+  }
+  if (inputClawEmailForwardingMailbox) {
+    inputClawEmailForwardingMailbox.value = state?.clawEmailForwardingMailbox || '';
+  }
+  if (inputClawEmailConnectionId) {
+    inputClawEmailConnectionId.value = state?.clawEmailConnectionId || '';
   }
 }
 
@@ -5136,6 +5186,15 @@ function collectSettingsPayload() {
     cloudMailAdminPassword: (typeof inputCloudMailAdminPassword !== 'undefined' && inputCloudMailAdminPassword) ? inputCloudMailAdminPassword.value : '',
     cloudMailReceiveMailbox: normalizeCloudMailReceiveMailboxInput((typeof inputCloudMailReceiveMailbox !== 'undefined' && inputCloudMailReceiveMailbox) ? inputCloudMailReceiveMailbox.value : ''),
     cloudMailDomain: normalizeCloudMailDomainInput((typeof inputCloudMailDomain !== 'undefined' && inputCloudMailDomain) ? inputCloudMailDomain.value : ''),
+    clawEmailBaseUrl: (typeof normalizeClawEmailBaseUrlValue === 'function'
+      ? normalizeClawEmailBaseUrlValue
+      : ((value = '') => String(value || '').trim() || 'http://127.0.0.1:8000'))((typeof inputClawEmailBaseUrl !== 'undefined' && inputClawEmailBaseUrl) ? inputClawEmailBaseUrl.value : ''),
+    clawEmailAdminPassword: ((typeof inputClawEmailAdminPassword !== 'undefined' && inputClawEmailAdminPassword) ? inputClawEmailAdminPassword.value : '').trim(),
+    clawEmailDuckAccountId: ((typeof inputClawEmailDuckAccountId !== 'undefined' && inputClawEmailDuckAccountId) ? inputClawEmailDuckAccountId.value : '').trim(),
+    clawEmailForwardingMailbox: (typeof normalizeClawEmailMailboxValue === 'function'
+      ? normalizeClawEmailMailboxValue
+      : ((value = '') => String(value || '').trim().toLowerCase()))((typeof inputClawEmailForwardingMailbox !== 'undefined' && inputClawEmailForwardingMailbox) ? inputClawEmailForwardingMailbox.value : ''),
+    clawEmailConnectionId: ((typeof inputClawEmailConnectionId !== 'undefined' && inputClawEmailConnectionId) ? inputClawEmailConnectionId.value : '').trim(),
     yydsMailApiKey: (typeof inputYydsMailApiKey !== 'undefined' && inputYydsMailApiKey) ? inputYydsMailApiKey.value.trim() : '',
     yydsMailBaseUrl: normalizeYydsBaseUrlValue((typeof inputYydsMailBaseUrl !== 'undefined' && inputYydsMailBaseUrl) ? inputYydsMailBaseUrl.value : ''),
     autoRunSkipFailures: inputAutoSkipFailures.checked,
@@ -11317,7 +11376,7 @@ function applySettingsState(state) {
     ? YYDS_MAIL_PROVIDER
     : 'yyds-mail';
   const restoredMailProvider = isCustomMailProvider(state?.mailProvider)
-    || [ICLOUD_PROVIDER, 'hotmail-api', GMAIL_PROVIDER, 'luckmail-api', yydsMailProvider, '163', '163-vip', '126', 'qq', 'inbucket', '2925', 'cloudflare-temp-email', 'cloudmail'].includes(String(state?.mailProvider || '').trim())
+    || [ICLOUD_PROVIDER, 'hotmail-api', GMAIL_PROVIDER, 'luckmail-api', yydsMailProvider, '163', '163-vip', '126', 'qq', 'inbucket', '2925', 'cloudflare-temp-email', 'cloudmail', 'claw-duck'].includes(String(state?.mailProvider || '').trim())
     ? String(state?.mailProvider || '163').trim()
     : (String(state?.emailGenerator || '').trim().toLowerCase() === 'custom'
       || String(state?.emailGenerator || '').trim().toLowerCase() === 'manual'
@@ -11341,6 +11400,8 @@ function applySettingsState(state) {
       selectEmailGenerator.value = 'cloudflare-temp-email';
     } else if (restoredEmailGenerator === 'cloudmail') {
       selectEmailGenerator.value = 'cloudmail';
+    } else if (restoredEmailGenerator === 'claw-duck') {
+      selectEmailGenerator.value = 'claw-duck';
     } else {
       selectEmailGenerator.value = 'duck';
     }
@@ -11398,6 +11459,9 @@ function applySettingsState(state) {
   applyCloudflareTempEmailSettingsState(state);
   if (typeof applyCloudMailSettingsState === 'function') {
     applyCloudMailSettingsState(state);
+  }
+  if (typeof applyClawEmailDuckSettingsState === 'function') {
+    applyClawEmailDuckSettingsState(state);
   }
   if (typeof applyYydsMailSettingsState === 'function') {
     applyYydsMailSettingsState(state);
@@ -12426,6 +12490,7 @@ function getSelectedEmailGenerator() {
   if (generator === 'cloudflare') return 'cloudflare';
   if (generator === 'cloudflare-temp-email') return 'cloudflare-temp-email';
   if (generator === 'cloudmail') return 'cloudmail';
+  if (generator === 'claw-duck') return 'claw-duck';
   return 'duck';
 }
 
@@ -12479,6 +12544,14 @@ function getEmailGeneratorUiCopy() {
       placeholder: '点击生成 Cloud Mail 邮箱，或手动粘贴邮箱',
       successVerb: '生成',
       label: 'Cloud Mail',
+    };
+  }
+  if (getSelectedEmailGenerator() === 'claw-duck') {
+    return {
+      buttonLabel: '生成 Duck',
+      placeholder: '点击通过 ClawEmail 生成 Duck 邮箱，或手动粘贴邮箱',
+      successVerb: '生成',
+      label: 'ClawEmail Duck',
     };
   }
 
@@ -12907,9 +12980,10 @@ function updateMailProviderUI() {
   const useCustomEmail = isCustomMailProvider();
   const useCustomMailProviderPool = useCustomEmail && usesCustomMailProviderPool(selectMailProvider.value);
   const useIcloudProvider = isIcloudMailProvider();
-  const useEmailGenerator = !useHotmail && !useLuckmail && !useYydsMail && !useCustomEmail && (!useGeneratedAlias || useGmail);
   const useCloudflareTempEmailProvider = selectMailProvider.value === 'cloudflare-temp-email';
   const useCloudMailProvider = selectMailProvider.value === 'cloudmail';
+  const useClawEmailDuckProvider = selectMailProvider.value === 'claw-duck';
+  const useEmailGenerator = !useHotmail && !useLuckmail && !useYydsMail && !useClawEmailDuckProvider && !useCustomEmail && (!useGeneratedAlias || useGmail);
   const aliasUiCopy = useGeneratedAlias
     ? getManagedAliasProviderUiCopy(selectMailProvider.value, mail2925Mode)
     : null;
@@ -12933,6 +13007,7 @@ function updateMailProviderUI() {
   const useIcloud = selectedGenerator === 'icloud';
   const useCloudflareTempEmailGenerator = selectedGenerator === 'cloudflare-temp-email';
   const useCloudMailGenerator = selectedGenerator === 'cloudmail';
+  const useClawEmailDuckGenerator = selectedGenerator === 'claw-duck';
   const showCloudflareDomain = useEmailGenerator && useCloudflare;
   const showCloudflareTempEmailSettings = useCloudflareTempEmailProvider || (useEmailGenerator && useCloudflareTempEmailGenerator);
   const showCloudflareTempEmailLookupMode = useCloudflareTempEmailProvider && !useCloudflareTempEmailGenerator;
@@ -12949,6 +13024,8 @@ function updateMailProviderUI() {
   const showCloudMailSettings = useCloudMailProvider || (useEmailGenerator && useCloudMailGenerator);
   const showCloudMailReceiveMailbox = useCloudMailProvider && !useCloudMailGenerator;
   const showCloudMailDomain = useEmailGenerator && useCloudMailGenerator;
+  const showClawEmailDuckSettings = useClawEmailDuckProvider || (useEmailGenerator && useClawEmailDuckGenerator);
+  const showClawEmailDuckAccountId = showClawEmailDuckSettings;
   const selectedIcloudHost = typeof getSelectedIcloudHostPreference === 'function'
     ? getSelectedIcloudHostPreference()
     : (normalizeIcloudHostValue(icloudHostPreferenceValue || latestState?.icloudHostPreference || '')
@@ -12977,6 +13054,9 @@ function updateMailProviderUI() {
   if (typeof cloudMailSection !== 'undefined' && cloudMailSection) {
     cloudMailSection.style.display = showCloudMailSettings ? '' : 'none';
   }
+  if (typeof clawEmailDuckSection !== 'undefined' && clawEmailDuckSection) {
+    clawEmailDuckSection.style.display = showClawEmailDuckSettings ? '' : 'none';
+  }
   if (typeof yydsMailSection !== 'undefined' && yydsMailSection) {
     yydsMailSection.style.display = useYydsMail ? '' : 'none';
   }
@@ -12985,6 +13065,11 @@ function updateMailProviderUI() {
   if (typeof rowCloudMailAdminPassword !== 'undefined' && rowCloudMailAdminPassword) rowCloudMailAdminPassword.style.display = showCloudMailSettings ? '' : 'none';
   if (typeof rowCloudMailReceiveMailbox !== 'undefined' && rowCloudMailReceiveMailbox) rowCloudMailReceiveMailbox.style.display = showCloudMailReceiveMailbox ? '' : 'none';
   if (typeof rowCloudMailDomain !== 'undefined' && rowCloudMailDomain) rowCloudMailDomain.style.display = showCloudMailDomain ? '' : 'none';
+  if (typeof rowClawEmailBaseUrl !== 'undefined' && rowClawEmailBaseUrl) rowClawEmailBaseUrl.style.display = showClawEmailDuckSettings ? '' : 'none';
+  if (typeof rowClawEmailAdminPassword !== 'undefined' && rowClawEmailAdminPassword) rowClawEmailAdminPassword.style.display = showClawEmailDuckSettings ? '' : 'none';
+  if (typeof rowClawEmailDuckAccountId !== 'undefined' && rowClawEmailDuckAccountId) rowClawEmailDuckAccountId.style.display = showClawEmailDuckAccountId ? '' : 'none';
+  if (typeof rowClawEmailForwardingMailbox !== 'undefined' && rowClawEmailForwardingMailbox) rowClawEmailForwardingMailbox.style.display = showClawEmailDuckSettings ? '' : 'none';
+  if (typeof rowClawEmailConnectionId !== 'undefined' && rowClawEmailConnectionId) rowClawEmailConnectionId.style.display = showClawEmailDuckSettings ? '' : 'none';
   if (icloudSection) {
     const showIcloudSection = (useEmailGenerator && useIcloud) || useIcloudProvider;
     icloudSection.style.display = showIcloudSection ? '' : 'none';
@@ -13845,7 +13930,7 @@ async function fetchGeneratedEmail(options = {}) {
       payload: {
         generateNew: true,
         currentEmail: inputEmail.value.trim(),
-        generator: selectEmailGenerator.value,
+        generator: selectMailProvider.value === 'claw-duck' ? 'claw-duck' : selectEmailGenerator.value,
         mailProvider: selectMailProvider.value,
         mail2925Mode: getSelectedMail2925Mode(),
         ...(getSelectedEmailGenerator() === CUSTOM_EMAIL_POOL_GENERATOR
@@ -17716,6 +17801,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       }
       if (message.payload.cloudMailDomain !== undefined && inputCloudMailDomain) {
         inputCloudMailDomain.value = message.payload.cloudMailDomain || '';
+      }
+      if (message.payload.clawEmailBaseUrl !== undefined && inputClawEmailBaseUrl) {
+        inputClawEmailBaseUrl.value = normalizeClawEmailBaseUrlValue(message.payload.clawEmailBaseUrl || '');
+      }
+      if (message.payload.clawEmailAdminPassword !== undefined && inputClawEmailAdminPassword) {
+        inputClawEmailAdminPassword.value = message.payload.clawEmailAdminPassword || '';
+      }
+      if (message.payload.clawEmailDuckAccountId !== undefined && inputClawEmailDuckAccountId) {
+        inputClawEmailDuckAccountId.value = message.payload.clawEmailDuckAccountId || '';
+      }
+      if (message.payload.clawEmailForwardingMailbox !== undefined && inputClawEmailForwardingMailbox) {
+        inputClawEmailForwardingMailbox.value = message.payload.clawEmailForwardingMailbox || '';
+      }
+      if (message.payload.clawEmailConnectionId !== undefined && inputClawEmailConnectionId) {
+        inputClawEmailConnectionId.value = message.payload.clawEmailConnectionId || '';
       }
       if (message.payload.plusModeEnabled !== undefined && inputPlusModeEnabled) {
         inputPlusModeEnabled.checked = Boolean(message.payload.plusModeEnabled);
